@@ -3,12 +3,12 @@ clc;clear;warning off;
 %  -  -  -  -  -  -
 %  -  -  -  -  -  -
 global mcount
-mcount = 1000; %1 the count of the MonteCarlo
+mcount = 1; %1 the count of the MonteCarlo
 path_file = '\dataset'; %2 the path of the dataset (relative path)
 path_out = '\statistic-wtc'; %3 the path that outputs the result
 % section one.prepar
 path = pwd;
-path_out1 = '\awc_pwc';
+path_out1 = '\awc_pasc';
 path_out2 = '\pahse_period';
 mkdir(strcat(path, path_out));
 mkdir(strcat(path, path_out, path_out1));
@@ -34,23 +34,31 @@ container = table('Size', [numel(name_y), 2],...
     'VariableNames', name_x,...
     'RowNames', name_y);
 x_ = data_arr(:, 2).Variables;
+x_ = (x_ - mean(x_)) ./ std(x_);
 for j = 3:size(data_arr, 2)
     y_ = data_arr(:, j).Variables;
+    y_ = (y_ - mean(y_)) ./ std(y_);
     name = data_arr(:, j).Properties.VariableNames;
     [rsq,~,~,~,wtcsig,~] = wtc(x_, y_, 'MonteCarloCount', mcount); % 3 the count of MonteCarlo
     awc = mean(rsq, 'all');
-    pwc = sum(wtcsig > 1, 'all') / numel(wtcsig);
+    pasc = sum(wtcsig > 1, 'all') / numel(wtcsig);
     container(name, 'AWC') = num2cell(awc);
-    container(name, 'PASC') = num2cell(pwc);
+    container(name, 'PASC') = num2cell(pasc);
 end
+
 end
 
 function container2table=detail_wtc(data_arr)
 global mcount
 x_ = data_arr(:, 2).Variables;
+x_ = (x_ - mean(x_)) ./ std(x_);
+pp = 1;
+iterator = [];
 for j = 3:size(data_arr, 2)
+    name_large_scale = data_arr.Properties.VariableNames(j);
     date = data_arr.time;
     y_ = data_arr(:, j).Variables;
+    y_ = (y_ - mean(y_)) ./ std(y_);
     % main -------------
     [Wxy,~,~,~,~] = xwt(x_, y_);
     [~,period,~,~,wtcsig, t] = wtc(x_, y_, 'MonteCarloCount', mcount); % "MonteCarloCount" denotes the count of the monte carlo
@@ -60,18 +68,15 @@ for j = 3:size(data_arr, 2)
     p1 = ptile(loc);
     p1 = p1';
     loc = loc((c1 - p1)>0); % the local maximum at 0.05 level
-%     coherence95 = coherence(loc);
+    %     coherence95 = coherence(loc);
     resonance = period(loc);
-    
-    pp = 1;
-    iterator = [];
     for k=resonance
         wtcsig_one_scale = wtcsig((abs(period-k) == min(abs(period-k))), :);
         
         Wxy_one_scale = Wxy((abs(period-k) == min(abs(period-k))), :);
-%         Rsq_one_scale = Rsq((abs(period-k) == min(abs(period-k))), :);
+        %         Rsq_one_scale = Rsq((abs(period-k) == min(abs(period-k))), :);
         t_significant = t(wtcsig_one_scale >= 1);  % "t_significant" denotes the significant time period at specific scale.
-%         awc = Rsq_one_scale(wtcsig_one_scale >= 1); % average of wavelet coherence at specific scale
+        %         awc = Rsq_one_scale(wtcsig_one_scale >= 1); % average of wavelet coherence at specific scale
         t_significant = unique(t_significant);
         m=1; n=1;
         container = [];
@@ -105,24 +110,22 @@ for j = 3:size(data_arr, 2)
             degree = rad2deg(meantheta);
             lag = k * meantheta / (2 * pi); % convet the phase angle into time domain
             %         iterator(pp, 1) = string(round(k/12, 1)); if sample resolution is monthly, suggest divided by 12 that convert into yearly.
-            iterator{pp, 1} = round(k, 1);
-            iterator{pp, 2} = strcat(string(date(1)), '_', string(date(end)));
-            iterator{pp, 3}= round(degree, 1);
-            iterator{pp, 4} = round(lag, 1);
+            iterator{pp, 1} = name_large_scale;
+            iterator{pp, 2} = round(k, 1);
+            iterator{pp, 3} = strcat(string(date(event(1))), '_', string(date(event(end))));
+            iterator{pp, 4}= round(degree, 1);
+            iterator{pp, 5} = round(lag, 1);
             pp = pp + 1;
         end
         
         
     end
-    try
-        container2table = table('VariableNames', {'Coherence period (t_significant)', 't_significants', 'Phase difference', 'Leads/lags'},...
-            'Size', size(iterator),...
-            'VariableTypes', {'double', 'string', 'double', 'double'}) ;
-    catch
-        a = 1
-    end
-    container2table(:, :) = iterator;
+    
+    
 end
-
+container2table = table('VariableNames', {'Climate index','Coherence period (t_significant)', 't_significants', 'Phase difference', 'Leads/lags'},...
+    'Size', size(iterator),...
+    'VariableTypes', {'string','double', 'string', 'double', 'double'});
+container2table(:, :) = iterator;
 end
 
