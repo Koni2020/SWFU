@@ -4,30 +4,30 @@ clc;clear;warning off;
 %  -  -  -  -  -  -
 global mcount
 mcount = 1; %1 the count of the MonteCarlo
-path = pwd;
 path_file = '\dataset'; %2 the path of the dataset (relative path)
-path_out = '\statistic-mwc'; %3 the path that outputs the result
-path_awc_pasc = '\statistic-wtc';
-assert(exist(strcat(path, path_awc_pasc), 'file') == 7, 'Please run (run_wtc.m) first.');
+path_out = '\statistic-pwc'; %3 the path that outputs the result
 % section one.prepar
-path_out1 = '\awc_pwc';
+path = pwd;
+path_out1 = '\awc_pasc';
+path_awc_pasc = '\statistic-wtc';
 mkdir(strcat(path, path_out));
 mkdir(strcat(path, path_out, path_out1));
-% section two.batch run wavelet coherence
+assert(exist(strcat(path, path_awc_pasc), 'file') == 7, 'Please run (run_wtc.m) first.');
 file = dir(strcat(path, path_file, '\*.csv'));
-
 for i = 1:size(file, 1)
     filename = file(i).name;
     ds = readtable(strcat(path, path_file, '\',filename));
     pasc = readtable(strcat(path, path_awc_pasc, '\awc_pasc\',filename), 'ReadRowNames', true);
-    mwc_statistic = core_mwc(ds, pasc);
+    pwc_statistic = core_pwc(ds, pasc);
+    writetable(pwc_statistic, strcat(path, path_out, path_out1, '\', filename), 'WriteRowNames', true) % awc and pwc
 end
+
 
 function vector=z_standardize(vector)
 vector = (vector - mean(vector)) ./ std(vector);
 end
 
-function container=core_mwc(data_arr, wtc_pasc)
+function container=core_pwc(data_arr, wtc_pasc)
 global mcount
 candidate_index = wtc_pasc.Properties.RowNames;
 candidate_index = string(candidate_index);
@@ -37,23 +37,23 @@ x = data_arr(:, 2).Variables;
 y = data_arr(:, first_index).Variables;
 x = z_standardize(x);
 y = z_standardize(y);
-database = [x, y];
-combine = first_index;
 n = 1;
+combine = first_index;
+database = [x, y];
 while ~isempty(candidate_index)
     
     for k = 1:length(candidate_index)
-        disp(strcat("Searching: ",combine, '+', candidate_index(k)))
+        disp(strcat("Searching: ",combine, '-', candidate_index(k)))
         data = data_arr(:, candidate_index(k)).Variables;
         try % two
-            [Rsq,~,~,~,mwcsig] = mwc([database, data], 'MonteCarloCount', mcount);
+            [Rsq,~,~,~,pwcsig] = pwc([database, data], 'MonteCarloCount', mcount);
         catch
             break
         end
-        mwcsig_per=length(mwcsig(mwcsig>=1))/numel(mwcsig);
+        pwcsig_per=length(pwcsig(pwcsig>=1))/numel(pwcsig);
         middle{k, 1} = candidate_index(k);
-        middle{k, 2} = mwcsig_per;
-        middle{k, 3} = mean(Rsq(mwcsig > 1));
+        middle{k, 2} = pwcsig_per;
+        middle{k, 3} = mean(Rsq(pwcsig > 1));
         middle{k, 4} = [database, data];
         
     end
@@ -65,7 +65,7 @@ while ~isempty(candidate_index)
     apwc = middle{pos, 3};
     
     database = middle{pos, 4};
-    combine = strcat(combine, '+', middle{pos,1});
+    combine = strcat(combine, '-', middle{pos,1});
     disp(combine)
     container_best{n, 1} = combine;
     container_best{n, 2} = apwc;
@@ -78,6 +78,7 @@ while ~isempty(candidate_index)
     clear("databased")
     
 end
+
 container = table('VariableNames', {'Combination','AWC', 'PASC'},...
     'Size', size(container_best),...
     'VariableTypes', {'string','double', 'double'});
