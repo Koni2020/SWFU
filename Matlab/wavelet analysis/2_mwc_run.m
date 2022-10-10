@@ -16,6 +16,9 @@ assert(exist(strcat(path, path_awc_pasc), 'file') == 7, 'Please run (run_wtc.m) 
 file = dir(strcat(path, path_file, '\*.csv'));
 for i = 1:size(file, 1)
     filename = file(i).name;
+    if strcat(path, path_out, path_out1, '\', filename) == 7;
+        continue
+    end
     ds = readtable(strcat(path, path_file, '\',filename));
     pasc = readtable(strcat(path, path_awc_pasc, '\awc_pasc\',filename), 'ReadRowNames', true);
     pwc_statistic = core_pwc(ds, pasc);
