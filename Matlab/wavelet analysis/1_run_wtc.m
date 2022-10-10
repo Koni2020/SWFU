@@ -17,6 +17,9 @@ mkdir(strcat(path, path_out, path_out2))
 file = dir(strcat(path, path_file, '\*.csv'));
 for i = 1:size(file, 1)
     filename = file(i).name;
+    if strcat(path, path_out, path_out1, '\', filename) == 7;
+        continue
+    end
     ds = readtable(strcat(path, path_file, '\',filename));
     statistic = core_wtc(ds);
     detail_info = detail_wtc(ds);
